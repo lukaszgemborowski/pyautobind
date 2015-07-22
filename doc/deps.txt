@@ -1,0 +1,4 @@
+On ubuntu you need following packages installed:
+
+* python-clang-3.6
+* libclang1-3.6
