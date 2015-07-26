@@ -6,10 +6,55 @@ library_so = ""
 include_path = ["-I/home/icek/Projects/binding/libsample/include"]
 interface_files = ["/home/icek/Projects/binding/libsample/include/interface.h"]
 
-basic_type_map = {"int" : "c_int", "char" : "c_char", "unsigned short" : "c_ushort", "unsigned char" : "c_ubyte"}
+basic_type_map = {"int" : "c_int", 
+    "char" : "c_char", 
+    "unsigned short" : "c_ushort", 
+    "unsigned char" : "c_ubyte"}
 
 def generate_header():
-    print("import ctypes")
+    print("import ctypes\n")
+
+def get_type_name(ctype):
+    canonical_name = ctype.get_canonical().spelling
+
+    if canonical_name.startswith("struct "):
+        canonical_name = canonical_name[len("struct "):]
+
+    return canonical_name 
+
+def get_struct_name(struct):
+    assert isinstance(struct, Cursor), "argument should be of type Cursor"
+    assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
+    return struct.displayname
+
+def get_field_type(field, structs):
+    assert isinstance(field, Cursor), "argument should be of type Cursor"
+    assert field.kind == CursorKind.FIELD_DECL, "argument should be FIELD_DECL kind"
+
+    if field.type.get_canonical().spelling in basic_type_map:
+        return "ctypes." + basic_type_map[field.type.get_canonical().spelling]
+
+    # type is not a basic type, or someone missed this type in translation dict ;)
+    # try to find it in declared structures list
+    for struct in structs:
+        if get_type_name(field.type) == get_struct_name(struct):
+            return get_struct_name(struct)
+
+    assert False, "type not found"
+
+def generate_struct_declarations(structs):
+    for struct in structs:
+        print("class %s(ctypes.Structure):" % get_struct_name(struct))
+        print("\tpass\n")
+
+def generate_struct_members(structs):
+    for struct in structs:
+        print("%s._fields_ = [" % get_struct_name(struct))
+
+        for field in struct.get_children():
+                print("\t(\"%s\", %s)," % (field.displayname, get_field_type(field, structs)))
+
+        print("\t]\n")
 
 def debug_print_ast(node, level):
     next_level = level + 1
@@ -23,21 +68,23 @@ def debug_print_ast(node, level):
         debug_print_ast(c, next_level)
 
 def ctype_to_python(ctypename):
-    print("type is %s" % ctypename.kind)
     return "ctypes." + basic_type_map[ctypename.get_canonical().spelling]
 
 def handle_structure(node, structs):
     if node.displayname == "":
-        # TODO: struct without name, probably typedef-ed
+        # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
         return
 
-    print("class %s(ctypes.Structure):" % node.displayname)
-    print("\t_fields_ = [ \\")
+    # append struct node
+    structs.append(node)
 
-    for field in node.get_children():
-        print("\t\t(\"%s\", %s), \\" % (field.displayname, ctype_to_python(field.type)))
+    #print("class %s(ctypes.Structure):" % node.displayname)
+    #print("\t_fields_ = [ \\")
+
+    #for field in node.get_children():
+    #    print("\t\t(\"%s\", %s), \\" % (field.displayname, ctype_to_python(field.type)))
     
-    print("\t\t]")
+    #print("\t\t]")
 
 def find_definitions(node, types, structs, functions):
     if node.kind == CursorKind.FUNCTION_DECL:
@@ -59,11 +106,12 @@ def main():
     index = Index.create();
     tu = index.parse(interface_files[0], include_path)
 
-    generate_header()
-
     for node in tu.cursor.get_children():
         find_definitions(node, types, structs, functions)
 
+    generate_header()
+    generate_struct_declarations(structs)
+    generate_struct_members(structs)
 
 if __name__ == "__main__":
     main()

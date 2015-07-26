@@ -11,7 +11,7 @@ struct three_bytes
 
 typedef struct three_bytes three_bytes_t;
 
-typedef struct
+typedef struct four_bytes
 {
     two_bytes a, b;
 } four_bytes_t;
@@ -19,7 +19,7 @@ typedef struct
 struct seven_bytes
 {
 	four_bytes_t a;
-	three_bytes_t b;
+	three_bytes b;
 };
 
 #endif
