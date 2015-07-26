@@ -23,7 +23,7 @@ def get_type_name(ctype):
 
     return canonical_name 
 
-def get_struct_name(struct):
+def get_struct_name_from_decl(struct):
     assert isinstance(struct, Cursor), "argument should be of type Cursor"
     assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
     return struct.displayname
@@ -33,12 +33,16 @@ def get_field_type(field, structs):
     assert field.kind == CursorKind.FIELD_DECL, "argument should be FIELD_DECL kind"
 
     is_pointer = False
+    is_array = False
     field_type = field.type
     type_name = None
 
     if field.type.kind == TypeKind.POINTER:
         field_type = field_type.get_pointee()
         is_pointer = True
+    elif field.type.kind == TypeKind.CONSTANTARRAY:
+        field_type = field_type.get_array_element_type()
+        is_array = True
 
     if field_type.get_canonical().spelling in basic_type_map:
         type_name = "ctypes." + basic_type_map[field_type.get_canonical().spelling]
@@ -46,12 +50,14 @@ def get_field_type(field, structs):
         # type is not a basic type, or someone missed this type in translation dict ;)
         # try to find it in declared structures list
         for struct in structs:
-            if get_type_name(field_type) == get_struct_name(struct):
-                type_name = get_struct_name(struct)
+            if get_type_name(field_type) == get_struct_name_from_decl(struct):
+                type_name = get_struct_name_from_decl(struct)
 
     if type_name != None:
         if is_pointer:
             return "ctypes.POINTER(%s)" % type_name
+        elif is_array:
+            return "%s * %d" % (type_name, field.type.get_array_size())
         else:
             return type_name
     else:
@@ -59,12 +65,12 @@ def get_field_type(field, structs):
 
 def generate_struct_declarations(structs):
     for struct in structs:
-        print("class %s(ctypes.Structure):" % get_struct_name(struct))
+        print("class %s(ctypes.Structure):" % get_struct_name_from_decl(struct))
         print("\tpass\n")
 
 def generate_struct_members(structs):
     for struct in structs:
-        print("%s._fields_ = [" % get_struct_name(struct))
+        print("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
                 print("\t(\"%s\", %s)," % (field.displayname, get_field_type(field, structs)))

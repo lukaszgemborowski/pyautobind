@@ -25,6 +25,7 @@ struct seven_bytes
 struct combo
 {
 	int *pointer_to_integer;
+	int integer_array[20];
 };
 
 #endif
