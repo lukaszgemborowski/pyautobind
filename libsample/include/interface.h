@@ -5,6 +5,7 @@
 
 void foo();
 void bar(four_bytes_t param);
+const char* enum_to_string(enum some_enum e);
 
 #endif
 
