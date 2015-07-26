@@ -8,15 +8,36 @@ cfg_includes = []
 cfg_files = None
 
 infile = None
-outfile = None
+outfilename = None
+outstream = None
 
 basic_type_map = {"int" : "c_int", 
     "char" : "c_char", 
     "unsigned short" : "c_ushort", 
     "unsigned char" : "c_ubyte"}
 
-def generate_header():
-    print("import ctypes\n")
+class Writer:
+    def __init__(self, filename):
+        if filename == None:
+            self._stream = sys.stdout
+            self._isfile = False
+        else:
+            self._stream = open(filename, "w")
+            self._isfile = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if self._isfile:
+            self._stream.close()
+
+    def write(self, line, tabs = 0):
+        while tabs > 0:
+            self._stream.write("\t")
+            tabs = tabs - 1
+
+        self._stream.write("%s\n" % line)
 
 def get_type_name(ctype):
     canonical_name = ctype.get_canonical().spelling
@@ -66,36 +87,39 @@ def get_field_type(field, structs):
     else:
         assert False, "type not found"
 
-def generate_struct_declarations(structs):
+def generate_struct_declarations(writer, structs):
     for struct in structs:
-        print("class %s(ctypes.Structure):" % get_struct_name_from_decl(struct))
-        print("\tpass\n")
+        writer.write("class %s(ctypes.Structure):" % get_struct_name_from_decl(struct))
+        writer.write("pass\n", 1)
 
-def generate_struct_members(structs):
+def generate_struct_members(writer, structs):
     for struct in structs:
-        print("%s._fields_ = [" % get_struct_name_from_decl(struct))
+        writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
-                print("\t(\"%s\", %s)," % (field.displayname, get_field_type(field, structs)))
+                writer.write("(\"%s\", %s)," % (field.displayname, get_field_type(field, structs)), 1)
 
-        print("\t]\n")
+        writer.write("]\n", 1)
 
-def generate_functions(functions):
+def generate_functions(writer, functions):
     for function in functions:
         arglist = ["self"]
 
         for arg in function.get_arguments():
             arglist.append(arg.spelling)
 
-        print("\tdef %s(%s):" % (function.spelling, ', '.join(arglist)))
-        print("\t\tself._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])))
+        writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
+        writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
 
-def generate_module(functions):
-    print("class %s:" % cfg_name)
-    print("\tdef __init__(self, path):")
-    print("\t\tself._handle = ctypes.CDLL(path)\n")
+def generate_module(writer, functions):
+    writer.write("class %s:" % cfg_name)
+    writer.write("def __init__(self, path):", 1)
+    writer.write("self._handle = ctypes.CDLL(path)\n", 2)
 
-    generate_functions(functions)
+    generate_functions(writer, functions)
+
+def generate_header(writer):
+    writer.write("import ctypes\n")
 
 def debug_print_ast(node, level):
     next_level = level + 1
@@ -137,7 +161,7 @@ def usage():
 
 def parse_command_line():
     global infile
-    global outfile
+    global outfilename
     global cfg_name
     global cfg_includes
     global cfg_files
@@ -154,7 +178,7 @@ def parse_command_line():
             usage()
             sys.exit(0)
         elif o in("-o", "--output"):
-            outfile = a
+            outfilename = a
         elif o in("-i", "--input"):
             infile = a
         else:
@@ -185,6 +209,8 @@ def parse_command_line():
                 cfg_includes = b["cfg_includes"]
 
 def main():
+    global outfilename
+
     types = []
     structs = []
     functions = []
@@ -197,10 +223,11 @@ def main():
     for node in tu.cursor.get_children():
         find_definitions(node, types, structs, functions)
 
-    generate_header()
-    generate_struct_declarations(structs)
-    generate_struct_members(structs)
-    generate_module(functions)
+    with Writer(outfilename) as writer:
+        generate_header(writer)
+        generate_struct_declarations(writer, structs)
+        generate_struct_members(writer, structs)
+        generate_module(writer, functions)
 
 if __name__ == "__main__":
     main()
