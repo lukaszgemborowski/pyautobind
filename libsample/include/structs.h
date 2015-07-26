@@ -22,4 +22,9 @@ struct seven_bytes
 	three_bytes b;
 };
 
+struct combo
+{
+	int *pointer_to_integer;
+};
+
 #endif

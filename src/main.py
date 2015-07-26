@@ -2,7 +2,8 @@ from clang.cindex import *
 from ctypes import *
 import sys
 
-library_so = ""
+# this should be handled as program arguments:
+library_name = "libsample"
 include_path = ["-I/home/icek/Projects/binding/libsample/include"]
 interface_files = ["/home/icek/Projects/binding/libsample/include/interface.h"]
 
@@ -31,16 +32,30 @@ def get_field_type(field, structs):
     assert isinstance(field, Cursor), "argument should be of type Cursor"
     assert field.kind == CursorKind.FIELD_DECL, "argument should be FIELD_DECL kind"
 
-    if field.type.get_canonical().spelling in basic_type_map:
-        return "ctypes." + basic_type_map[field.type.get_canonical().spelling]
+    is_pointer = False
+    field_type = field.type
+    type_name = None
 
-    # type is not a basic type, or someone missed this type in translation dict ;)
-    # try to find it in declared structures list
-    for struct in structs:
-        if get_type_name(field.type) == get_struct_name(struct):
-            return get_struct_name(struct)
+    if field.type.kind == TypeKind.POINTER:
+        field_type = field_type.get_pointee()
+        is_pointer = True
 
-    assert False, "type not found"
+    if field_type.get_canonical().spelling in basic_type_map:
+        type_name = "ctypes." + basic_type_map[field_type.get_canonical().spelling]
+    else:
+        # type is not a basic type, or someone missed this type in translation dict ;)
+        # try to find it in declared structures list
+        for struct in structs:
+            if get_type_name(field_type) == get_struct_name(struct):
+                type_name = get_struct_name(struct)
+
+    if type_name != None:
+        if is_pointer:
+            return "ctypes.POINTER(%s)" % type_name
+        else:
+            return type_name
+    else:
+        assert False, "type not found"
 
 def generate_struct_declarations(structs):
     for struct in structs:
