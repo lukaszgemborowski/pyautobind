@@ -155,7 +155,9 @@ def handle_structure(node, structs):
         # typedef struct { int a; } some_struct;
         return
 
-    structs.append(node)
+    if node.is_definition():
+        # do not include forward declarations in list
+        structs.append(node)
 
 def find_definitions(node, types, structs, functions):
     if node.kind == CursorKind.FUNCTION_DECL:
