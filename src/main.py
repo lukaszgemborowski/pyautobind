@@ -44,10 +44,19 @@ class Writer:
         self._stream.write("%s\n" % line)
 
 def get_type_name(ctype):
+    if ctype.kind == TypeKind.POINTER:
+        ctype = ctype.get_pointee()
+
+    if ctype.kind == TypeKind.CONSTANTARRAY:
+        ctype = ctype.get_array_element_type()
+
     canonical_name = ctype.get_canonical().spelling
 
     if canonical_name.startswith("struct "):
         canonical_name = canonical_name[len("struct "):]
+
+    if canonical_name.startswith("const "):
+        canonical_name = canonical_name[len("const "):]
 
     return canonical_name 
 
@@ -56,42 +65,37 @@ def get_struct_name_from_decl(struct):
     assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
     return struct.displayname
 
-def get_field_type(field, structs):
-    assert isinstance(field, Cursor), "argument should be of type Cursor"
-    assert field.kind == CursorKind.FIELD_DECL, "argument should be FIELD_DECL kind"
-
+def type_to_ctype(typedef, structs):
+    assert isinstance(typedef, Type), "argument should be of type Type"
     is_pointer = False
     is_array = False
-    field_type = field.type
-    type_name = None
+    raw_type = get_type_name(typedef)
 
-    if field.type.kind == TypeKind.POINTER:
+    if typedef.kind == TypeKind.POINTER:
         # void* is special case, we don't handle it as pointer type
-        if field_type.get_pointee().get_canonical().kind != TypeKind.VOID:
-            field_type = field_type.get_pointee()
+        if typedef.get_pointee().get_canonical().kind != TypeKind.VOID:
             is_pointer = True
-    elif field.type.kind == TypeKind.CONSTANTARRAY:
-        field_type = field_type.get_array_element_type()
+    elif typedef.kind == TypeKind.CONSTANTARRAY:
         is_array = True
-    
-    if field_type.get_canonical().spelling in basic_type_map:
-        type_name = "ctypes." + basic_type_map[field_type.get_canonical().spelling]
+
+    if raw_type in basic_type_map:
+        raw_type = "ctypes." + basic_type_map[raw_type]
     else:
         # type is not a basic type, or someone missed this type in translation dict ;)
         # try to find it in declared structures list
         for struct in structs:
-            if get_type_name(field_type) == get_struct_name_from_decl(struct):
-                type_name = get_struct_name_from_decl(struct)
+            if get_type_name(typedef) == get_struct_name_from_decl(struct):
+                raw_type = get_struct_name_from_decl(struct)
 
-    if type_name != None:
+    if raw_type != None:
         if is_pointer:
-            return "ctypes.POINTER(%s)" % type_name
+            return "ctypes.POINTER(%s)" % raw_type 
         elif is_array:
-            return "%s * %d" % (type_name, field.type.get_array_size())
+            return "%s * %d" % (raw_type, typedef.get_array_size())
         else:
-            return type_name
+            return raw_type
     else:
-        assert False, "type not found"
+        return None 
 
 def generate_struct_declarations(writer, structs):
     for struct in structs:
@@ -103,11 +107,11 @@ def generate_struct_members(writer, structs):
         writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
-                writer.write("(\"%s\", %s)," % (field.displayname, get_field_type(field, structs)), 1)
+                writer.write("(\"%s\", %s)," % (field.displayname, type_to_ctype(field.type, structs)), 1)
 
         writer.write("]\n", 1)
 
-def generate_functions(writer, functions):
+def generate_functions(writer, functions, structs):
     for function in functions:
         arglist = ["self"]
         unnamed_no = 0
@@ -120,14 +124,20 @@ def generate_functions(writer, functions):
                 arglist.append(arg.spelling)
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
-        writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+        restype = type_to_ctype(function.result_type, structs)
 
-def generate_module(writer, functions):
+        if restype != "void":
+            writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
+            writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+        else:
+            writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+
+def generate_module(writer, functions, structs):
     writer.write("class %s:" % cfg_name)
     writer.write("def __init__(self, path):", 1)
     writer.write("self._handle = ctypes.CDLL(path)\n", 2)
 
-    generate_functions(writer, functions)
+    generate_functions(writer, functions, structs)
 
 def generate_enums(writer, enums):
     for enum in enums:
@@ -260,7 +270,7 @@ def main():
         generate_enum_values(writer, enums)
         generate_struct_declarations(writer, structs)
         generate_struct_members(writer, structs)
-        generate_module(writer, functions)
+        generate_module(writer, functions, structs)
 
 if __name__ == "__main__":
     main()
