@@ -44,6 +44,9 @@ class Writer:
         self._stream.write("%s\n" % line)
 
 def get_type_name(ctype):
+    """
+    Translate libclang Type into ctypes type (without struct, const prefix)
+    """
     if ctype.kind == TypeKind.POINTER:
         ctype = ctype.get_pointee()
 
@@ -57,6 +60,9 @@ def get_type_name(ctype):
 
     if canonical_name.startswith("const "):
         canonical_name = canonical_name[len("const "):]
+
+    if canonical_name.startswith("enum "):
+        return "int"
 
     return canonical_name 
 
@@ -114,9 +120,12 @@ def generate_struct_members(writer, structs):
 def generate_functions(writer, functions, structs):
     for function in functions:
         arglist = ["self"]
+        argtypes = []
         unnamed_no = 0
 
         for arg in function.get_arguments():
+            argtypes.append(type_to_ctype(arg.type, structs))
+
             if arg.spelling == "":
                 arglist.append("unnamed_%d" % unnamed_no)
                 unnamed_no = unnamed_no + 1
@@ -125,6 +134,8 @@ def generate_functions(writer, functions, structs):
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
         restype = type_to_ctype(function.result_type, structs)
+
+        writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
 
         if restype != "void":
             writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
