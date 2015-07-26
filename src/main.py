@@ -129,6 +129,18 @@ def generate_module(writer, functions):
 
     generate_functions(writer, functions)
 
+def generate_enums(writer, enums):
+    for enum in enums:
+        writer.write("class %s:" % enum.spelling)
+        writer.write("pass\n", 1)
+
+def generate_enum_values(writer, enums):
+    for enum in enums:
+        for value in enum.get_children():
+            writer.write("%s.%s = %d" % (enum.spelling, value.spelling, value.enum_value))
+
+        writer.write("")
+
 def generate_header(writer):
     writer.write("import ctypes\n")
 
@@ -159,7 +171,10 @@ def handle_structure(node, structs):
         # do not include forward declarations in list
         structs.append(node)
 
-def find_definitions(node, types, structs, functions):
+def handle_enum(node, enums):
+    enums.append(node)
+
+def find_definitions(node, types, structs, functions, enums):
     if node.kind == CursorKind.FUNCTION_DECL:
         handle_functions(node, functions)
     elif node.kind == CursorKind.STRUCT_DECL:
@@ -167,6 +182,8 @@ def find_definitions(node, types, structs, functions):
     elif node.kind == CursorKind.TYPEDEF_DECL:
         # TODO: just to do
         pass
+    elif node.kind == CursorKind.ENUM_DECL:
+        handle_enum(node, enums)
 
 def usage():
     # TODO: implement help message
@@ -227,6 +244,7 @@ def main():
     types = []
     structs = []
     functions = []
+    enums = []
 
     parse_command_line()
 
@@ -234,10 +252,12 @@ def main():
     tu = index.parse(cfg_files[0], cfg_includes)
 
     for node in tu.cursor.get_children():
-        find_definitions(node, types, structs, functions)
+        find_definitions(node, types, structs, functions, enums)
 
     with Writer(outfilename) as writer:
         generate_header(writer)
+        generate_enums(writer, enums)
+        generate_enum_values(writer, enums)
         generate_struct_declarations(writer, structs)
         generate_struct_members(writer, structs)
         generate_module(writer, functions)
