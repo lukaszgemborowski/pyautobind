@@ -19,7 +19,7 @@ typedef struct four_bytes
 struct seven_bytes
 {
 	four_bytes_t a;
-	three_bytes b;
+	struct three_bytes b;
 };
 
 struct combo

@@ -77,6 +77,23 @@ def generate_struct_members(structs):
 
         print("\t]\n")
 
+def generate_functions(functions):
+    for function in functions:
+        arglist = ["self"]
+
+        for arg in function.get_arguments():
+            arglist.append(arg.spelling)
+
+        print("\tdef %s(%s):" % (function.spelling, ', '.join(arglist)))
+        print("\t\tself._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])))
+
+def generate_module(functions):
+    print("class %s:" % library_name)
+    print("\tdef __init__(self, path):")
+    print("\t\tself._handle = ctypes.CDLL(path)\n")
+
+    generate_functions(functions)
+
 def debug_print_ast(node, level):
     next_level = level + 1
     while level > 0:
@@ -91,27 +108,19 @@ def debug_print_ast(node, level):
 def ctype_to_python(ctypename):
     return "ctypes." + basic_type_map[ctypename.get_canonical().spelling]
 
+def handle_functions(node, functions):
+    functions.append(node)
+
 def handle_structure(node, structs):
     if node.displayname == "":
         # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
         return
 
-    # append struct node
     structs.append(node)
-
-    #print("class %s(ctypes.Structure):" % node.displayname)
-    #print("\t_fields_ = [ \\")
-
-    #for field in node.get_children():
-    #    print("\t\t(\"%s\", %s), \\" % (field.displayname, ctype_to_python(field.type)))
-    
-    #print("\t\t]")
 
 def find_definitions(node, types, structs, functions):
     if node.kind == CursorKind.FUNCTION_DECL:
-        pass
-#        print("function declaration", node.displayname)
-#        functions.append(node)
+        handle_functions(node, functions)
     elif node.kind == CursorKind.STRUCT_DECL:
         handle_structure(node, structs)
     elif node.kind == CursorKind.TYPEDEF_DECL:
@@ -133,6 +142,7 @@ def main():
     generate_header()
     generate_struct_declarations(structs)
     generate_struct_members(structs)
+    generate_module(functions)
 
 if __name__ == "__main__":
     main()
