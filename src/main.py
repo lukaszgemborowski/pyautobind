@@ -14,7 +14,11 @@ outstream = None
 basic_type_map = {"int" : "c_int", 
     "char" : "c_char", 
     "unsigned short" : "c_ushort", 
-    "unsigned char" : "c_ubyte"}
+    "unsigned char" : "c_ubyte",
+    "long" : "c_long",
+    "signed char" : "c_char",
+    "void *" : "c_void_p",
+    "unsigned long" : "c_ulong"}
 
 class Writer:
     def __init__(self, filename):
@@ -62,12 +66,14 @@ def get_field_type(field, structs):
     type_name = None
 
     if field.type.kind == TypeKind.POINTER:
-        field_type = field_type.get_pointee()
-        is_pointer = True
+        # void* is special case, we don't handle it as pointer type
+        if field_type.get_pointee().get_canonical().kind != TypeKind.VOID:
+            field_type = field_type.get_pointee()
+            is_pointer = True
     elif field.type.kind == TypeKind.CONSTANTARRAY:
         field_type = field_type.get_array_element_type()
         is_array = True
-
+    
     if field_type.get_canonical().spelling in basic_type_map:
         type_name = "ctypes." + basic_type_map[field_type.get_canonical().spelling]
     else:
