@@ -120,7 +120,7 @@ def generate_functions(writer, functions):
                 arglist.append(arg.spelling)
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
-        writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+        writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
 
 def generate_module(writer, functions):
     writer.write("class %s:" % cfg_name)
