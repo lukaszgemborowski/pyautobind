@@ -129,6 +129,18 @@ def generate_module(writer, functions):
 
     generate_functions(writer, functions)
 
+def generate_enums(writer, enums):
+    for enum in enums:
+        writer.write("class %s:" % enum.spelling)
+        writer.write("pass\n", 1)
+
+def generate_enum_values(writer, enums):
+    for enum in enums:
+        for value in enum.get_children():
+            writer.write("%s.%s = %d" % (enum.spelling, value.spelling, value.enum_value))
+
+        writer.write("")
+
 def generate_header(writer):
     writer.write("import ctypes\n")
 
@@ -159,8 +171,8 @@ def handle_structure(node, structs):
         # do not include forward declarations in list
         structs.append(node)
 
-def handle_enum(node, enum):
-    pass
+def handle_enum(node, enums):
+    enums.append(node)
 
 def find_definitions(node, types, structs, functions, enums):
     if node.kind == CursorKind.FUNCTION_DECL:
@@ -244,6 +256,8 @@ def main():
 
     with Writer(outfilename) as writer:
         generate_header(writer)
+        generate_enums(writer, enums)
+        generate_enum_values(writer, enums)
         generate_struct_declarations(writer, structs)
         generate_struct_members(writer, structs)
         generate_module(writer, functions)

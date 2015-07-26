@@ -9,7 +9,8 @@ typedef uint16_t two_bytes;
 enum some_enum {
     value_1,
     value_2,
-    value_3
+    value_3,
+    value_4 = 10
 };
 
 #endif
