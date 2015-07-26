@@ -110,9 +110,14 @@ def generate_struct_members(writer, structs):
 def generate_functions(writer, functions):
     for function in functions:
         arglist = ["self"]
+        unnamed_no = 0
 
         for arg in function.get_arguments():
-            arglist.append(arg.spelling)
+            if arg.spelling == "":
+                arglist.append("unnamed_%d" % unnamed_no)
+                unnamed_no = unnamed_no + 1
+            else:
+                arglist.append(arg.spelling)
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
         writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
