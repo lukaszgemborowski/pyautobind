@@ -135,7 +135,7 @@ def usage():
     # TODO: implement help message
     pass
 
-def main():
+def parse_command_line():
     global infile
     global outfile
     global cfg_name
@@ -184,9 +184,12 @@ def main():
             if "cfg_includes" in b:
                 cfg_includes = b["cfg_includes"]
 
+def main():
     types = []
     structs = []
     functions = []
+
+    parse_command_line()
 
     index = Index.create();
     tu = index.parse(cfg_files[0], cfg_includes)
