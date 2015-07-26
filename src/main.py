@@ -1,11 +1,14 @@
 from clang.cindex import *
 from ctypes import *
 import sys
+import getopt
 
-# this should be handled as program arguments:
-library_name = "libsample"
-include_path = ["-I/home/icek/Projects/binding/libsample/include"]
-interface_files = ["/home/icek/Projects/binding/libsample/include/interface.h"]
+cfg_name = None
+cfg_includes = []
+cfg_files = None
+
+infile = None
+outfile = None
 
 basic_type_map = {"int" : "c_int", 
     "char" : "c_char", 
@@ -88,7 +91,7 @@ def generate_functions(functions):
         print("\t\tself._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])))
 
 def generate_module(functions):
-    print("class %s:" % library_name)
+    print("class %s:" % cfg_name)
     print("\tdef __init__(self, path):")
     print("\t\tself._handle = ctypes.CDLL(path)\n")
 
@@ -114,6 +117,7 @@ def handle_functions(node, functions):
 def handle_structure(node, structs):
     if node.displayname == "":
         # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
+        # typedef struct { int a; } some_struct;
         return
 
     structs.append(node)
@@ -124,17 +128,68 @@ def find_definitions(node, types, structs, functions):
     elif node.kind == CursorKind.STRUCT_DECL:
         handle_structure(node, structs)
     elif node.kind == CursorKind.TYPEDEF_DECL:
+        # TODO: just to do
         pass
-#        print("typedef declaration", node.displayname, node.type.get_canonical().spelling)
-#        types.append(node)
+
+def usage():
+    # TODO: implement help message
+    pass
 
 def main():
+    global infile
+    global outfile
+    global cfg_name
+    global cfg_includes
+    global cfg_files
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "ho:i:", ["help", "output=", "input="])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        sys.exit(1)
+
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        elif o in("-o", "--output"):
+            outfile = a
+        elif o in("-i", "--input"):
+            infile = a
+        else:
+            assert False, "Unhandled"
+
+    if infile == None:
+        print("input is mandatory")
+        sys.exit(2)
+    else:
+        with open(infile) as config:
+            a = {}
+            b = {}
+
+            exec(config, a, b)
+            if "cfg_name" in b:
+                cfg_name = b["cfg_name"]
+            else:
+                print("cfg_name must be defined in config file")
+                sys.exit(1)
+
+            if "cfg_files" in b:
+                cfg_files = b["cfg_files"]
+            else:
+                print("cfg_files must be defined in config gile")
+                sys.exit(1)
+
+            if "cfg_includes" in b:
+                cfg_includes = b["cfg_includes"]
+
     types = []
     structs = []
     functions = []
 
     index = Index.create();
-    tu = index.parse(interface_files[0], include_path)
+    tu = index.parse(cfg_files[0], cfg_includes)
 
     for node in tu.cursor.get_children():
         find_definitions(node, types, structs, functions)
