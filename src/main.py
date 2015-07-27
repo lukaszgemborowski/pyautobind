@@ -44,7 +44,13 @@ class Writer:
         self._stream.write("%s\n" % line)
 
 def get_type_name(ctype):
+    """
+    Translate libclang Type into ctypes type (without struct, const prefix)
+    """
     if ctype.kind == TypeKind.POINTER:
+        if ctype.get_pointee().get_canonical().kind == TypeKind.VOID:
+            # special case for void* type
+            return "void *"
         ctype = ctype.get_pointee()
 
     if ctype.kind == TypeKind.CONSTANTARRAY:
@@ -58,23 +64,54 @@ def get_type_name(ctype):
     if canonical_name.startswith("const "):
         canonical_name = canonical_name[len("const "):]
 
+    if canonical_name.startswith("enum "):
+        return "int"
+
     return canonical_name 
 
 def get_struct_name_from_decl(struct):
     assert isinstance(struct, Cursor), "argument should be of type Cursor"
     assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
-    return struct.displayname
+
+    if struct.displayname != "":
+        return struct.displayname
+    else:
+        return struct.type.spelling
+
+def get_enum_name_from_decl(enum):
+    assert isinstance(enum, Cursor), "argument should be of type Cursor"
+    assert enum.kind == CursorKind.ENUM_DECL, "argument should be ENUM_DECL kind"
+
+    if enum.displayname != "":
+        return enum.displayname
+    else:
+        return enum.type.spelling
+
+def print_pointer(basic_type, level):
+    """ 
+    recursively print nested pointers
+    """
+    if level == 0:
+        return basic_type
+    else:
+        return "ctypes.POINTER(%s)" % print_pointer(basic_type, level - 1)
 
 def type_to_ctype(typedef, structs):
     assert isinstance(typedef, Type), "argument should be of type Type"
-    is_pointer = False
+    pointer_level = 0
     is_array = False
     raw_type = get_type_name(typedef)
 
     if typedef.kind == TypeKind.POINTER:
         # void* is special case, we don't handle it as pointer type
         if typedef.get_pointee().get_canonical().kind != TypeKind.VOID:
-            is_pointer = True
+            next_level = typedef
+            while next_level.kind == TypeKind.POINTER:
+                next_level = next_level.get_pointee()
+                pointer_level = pointer_level + 1
+
+            raw_type = get_type_name(next_level)
+
     elif typedef.kind == TypeKind.CONSTANTARRAY:
         is_array = True
 
@@ -88,8 +125,8 @@ def type_to_ctype(typedef, structs):
                 raw_type = get_struct_name_from_decl(struct)
 
     if raw_type != None:
-        if is_pointer:
-            return "ctypes.POINTER(%s)" % raw_type 
+        if pointer_level > 0:
+            return print_pointer(raw_type, pointer_level)
         elif is_array:
             return "%s * %d" % (raw_type, typedef.get_array_size())
         else:
@@ -107,16 +144,22 @@ def generate_struct_members(writer, structs):
         writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
+            if field.type.kind != TypeKind.RECORD and field.type.kind != TypeKind.UNEXPOSED:
                 writer.write("(\"%s\", %s)," % (field.displayname, type_to_ctype(field.type, structs)), 1)
+            else:
+                print("WARN: struct member ommited: %s of type: %s" % (field.displayname, field.type.spelling))
 
         writer.write("]\n", 1)
 
 def generate_functions(writer, functions, structs):
     for function in functions:
         arglist = ["self"]
+        argtypes = []
         unnamed_no = 0
 
         for arg in function.get_arguments():
+            argtypes.append(type_to_ctype(arg.type, structs))
+
             if arg.spelling == "":
                 arglist.append("unnamed_%d" % unnamed_no)
                 unnamed_no = unnamed_no + 1
@@ -125,6 +168,8 @@ def generate_functions(writer, functions, structs):
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
         restype = type_to_ctype(function.result_type, structs)
+
+        writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
 
         if restype != "void":
             writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
@@ -141,13 +186,13 @@ def generate_module(writer, functions, structs):
 
 def generate_enums(writer, enums):
     for enum in enums:
-        writer.write("class %s:" % enum.spelling)
+        writer.write("class %s:" % get_enum_name_from_decl(enum))
         writer.write("pass\n", 1)
 
 def generate_enum_values(writer, enums):
     for enum in enums:
         for value in enum.get_children():
-            writer.write("%s.%s = %d" % (enum.spelling, value.spelling, value.enum_value))
+            writer.write("%s.%s = %d" % (get_enum_name_from_decl(enum), value.spelling, value.enum_value))
 
         writer.write("")
 
@@ -172,10 +217,10 @@ def handle_functions(node, functions):
     functions.append(node)
 
 def handle_structure(node, structs):
-    if node.displayname == "":
+    #if node.displayname == "":
         # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
         # typedef struct { int a; } some_struct;
-        return
+     #   return
 
     if node.is_definition():
         # do not include forward declarations in list
