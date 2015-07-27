@@ -48,6 +48,9 @@ def get_type_name(ctype):
     Translate libclang Type into ctypes type (without struct, const prefix)
     """
     if ctype.kind == TypeKind.POINTER:
+        if ctype.get_pointee().get_canonical().kind == TypeKind.VOID:
+            # special case for void* type
+            return "void *"
         ctype = ctype.get_pointee()
 
     if ctype.kind == TypeKind.CONSTANTARRAY:
