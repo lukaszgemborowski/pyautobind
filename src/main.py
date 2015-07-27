@@ -101,7 +101,7 @@ def type_to_ctype(typedef, structs):
     pointer_level = 0
     is_array = False
     raw_type = get_type_name(typedef)
-
+    
     if typedef.kind == TypeKind.POINTER:
         # void* is special case, we don't handle it as pointer type
         if typedef.get_pointee().get_canonical().kind != TypeKind.VOID:
@@ -120,6 +120,8 @@ def type_to_ctype(typedef, structs):
     else:
         # type is not a basic type, or someone missed this type in translation dict ;)
         # try to find it in declared structures list
+        raw_type = None
+
         for struct in structs:
             if get_type_name(typedef) == get_struct_name_from_decl(struct):
                 raw_type = get_struct_name_from_decl(struct)
@@ -158,7 +160,12 @@ def generate_functions(writer, functions, structs):
         unnamed_no = 0
 
         for arg in function.get_arguments():
-            argtypes.append(type_to_ctype(arg.type, structs))
+            arg_type = type_to_ctype(arg.type, structs)
+
+            if arg_type == None:
+                arg_type = "TransparentType"
+
+            argtypes.append(arg_type)
 
             if arg.spelling == "":
                 arglist.append("unnamed_%d" % unnamed_no)
@@ -197,7 +204,8 @@ def generate_enum_values(writer, enums):
         writer.write("")
 
 def generate_header(writer):
-    writer.write("import ctypes\n")
+    import helpers
+    writer.write(helpers.helpers_string)
 
 def debug_print_ast(node, level):
     next_level = level + 1
