@@ -72,7 +72,20 @@ def get_type_name(ctype):
 def get_struct_name_from_decl(struct):
     assert isinstance(struct, Cursor), "argument should be of type Cursor"
     assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
-    return struct.displayname
+
+    if struct.displayname != "":
+        return struct.displayname
+    else:
+        return struct.type.spelling
+
+def get_enum_name_from_decl(enum):
+    assert isinstance(enum, Cursor), "argument should be of type Cursor"
+    assert enum.kind == CursorKind.ENUM_DECL, "argument should be ENUM_DECL kind"
+
+    if enum.displayname != "":
+        return enum.displayname
+    else:
+        return enum.type.spelling
 
 def type_to_ctype(typedef, structs):
     assert isinstance(typedef, Type), "argument should be of type Type"
@@ -155,13 +168,13 @@ def generate_module(writer, functions, structs):
 
 def generate_enums(writer, enums):
     for enum in enums:
-        writer.write("class %s:" % enum.spelling)
+        writer.write("class %s:" % get_enum_name_from_decl(enum))
         writer.write("pass\n", 1)
 
 def generate_enum_values(writer, enums):
     for enum in enums:
         for value in enum.get_children():
-            writer.write("%s.%s = %d" % (enum.spelling, value.spelling, value.enum_value))
+            writer.write("%s.%s = %d" % (get_enum_name_from_decl(enum), value.spelling, value.enum_value))
 
         writer.write("")
 
@@ -186,10 +199,10 @@ def handle_functions(node, functions):
     functions.append(node)
 
 def handle_structure(node, structs):
-    if node.displayname == "":
+    #if node.displayname == "":
         # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
         # typedef struct { int a; } some_struct;
-        return
+     #   return
 
     if node.is_definition():
         # do not include forward declarations in list

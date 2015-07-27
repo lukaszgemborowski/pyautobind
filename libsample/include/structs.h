@@ -28,4 +28,6 @@ struct combo
 	int integer_array[20];
 };
 
+typedef struct { int a; } unnamed_struct_t;
+
 #endif

@@ -13,5 +13,13 @@ enum some_enum {
     value_4 = 10
 };
 
+typedef enum two_names_enum {
+    foo_enum_value
+} two_names_enum_t;
+
+typedef enum {
+    bar_enum_value
+} unnamed_enum_t;
+
 #endif
 
