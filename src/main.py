@@ -173,6 +173,9 @@ def generate_functions(writer, functions, structs):
             else:
                 arglist.append(arg.spelling)
 
+        if function.type.is_function_variadic():
+            arglist.append("*args")
+
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
         restype = type_to_ctype(function.result_type, structs)
 
