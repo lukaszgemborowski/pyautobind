@@ -144,7 +144,10 @@ def generate_struct_members(writer, structs):
         writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
+            if field.type.kind != TypeKind.RECORD and field.type.kind != TypeKind.UNEXPOSED:
                 writer.write("(\"%s\", %s)," % (field.displayname, type_to_ctype(field.type, structs)), 1)
+            else:
+                print("WARN: struct member ommited: %s of type: %s" % (field.displayname, field.type.spelling))
 
         writer.write("]\n", 1)
 
