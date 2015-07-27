@@ -87,16 +87,31 @@ def get_enum_name_from_decl(enum):
     else:
         return enum.type.spelling
 
+def print_pointer(basic_type, level):
+    """ 
+    recursively print nested pointers
+    """
+    if level == 0:
+        return basic_type
+    else:
+        return "ctypes.POINTER(%s)" % print_pointer(basic_type, level - 1)
+
 def type_to_ctype(typedef, structs):
     assert isinstance(typedef, Type), "argument should be of type Type"
-    is_pointer = False
+    pointer_level = 0
     is_array = False
     raw_type = get_type_name(typedef)
 
     if typedef.kind == TypeKind.POINTER:
         # void* is special case, we don't handle it as pointer type
         if typedef.get_pointee().get_canonical().kind != TypeKind.VOID:
-            is_pointer = True
+            next_level = typedef
+            while next_level.kind == TypeKind.POINTER:
+                next_level = next_level.get_pointee()
+                pointer_level = pointer_level + 1
+
+            raw_type = get_type_name(next_level)
+
     elif typedef.kind == TypeKind.CONSTANTARRAY:
         is_array = True
 
@@ -110,8 +125,8 @@ def type_to_ctype(typedef, structs):
                 raw_type = get_struct_name_from_decl(struct)
 
     if raw_type != None:
-        if is_pointer:
-            return "ctypes.POINTER(%s)" % raw_type 
+        if pointer_level > 0:
+            return print_pointer(raw_type, pointer_level)
         elif is_array:
             return "%s * %d" % (raw_type, typedef.get_array_size())
         else:
