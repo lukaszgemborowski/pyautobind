@@ -225,11 +225,6 @@ def handle_functions(node, functions):
     functions.append(node)
 
 def handle_structure(node, structs):
-    #if node.displayname == "":
-        # TODO: struct without name, probably typedef-ed. Figure out how to handle it.
-        # typedef struct { int a; } some_struct;
-     #   return
-
     if node.is_definition():
         # do not include forward declarations in list
         structs.append(node)
