@@ -1,7 +1,7 @@
 # pyautobind
 
 ## description
-pyautobind is simple script for wrapping C-headers and libraries into python code. pyautobind will generate python definitions and ctypes code for your C library automatically. Just provide headers and let the pyautobind do the magic.
+pyautobind is simple script for wrapping C-headers and libraries into python code. pyautobind will generate python definitions and ctypes code for your C library automatically. Just provide headers and let the pyautobind do the magic. **The script won't work with C++ libraries**.
 
 ## dependencies
 you need libclang and it's python bindings for this script to work correctly.
@@ -52,4 +52,29 @@ You can now try to do something more "advanced", eg. file IO:
 >>> lib.fclose(fd)
 0
 ```
-Now you can check contents of beer.txt file. (now I feel that this software should be beerware :) )
+Now you can check contents of beer.txt file. (now I feel that this software should be beerware :)) pyautobind will generate python classes for every C structure found in header files. You can check it out on libsample provided in this repository. It contains several structure definitions: `python src/main.py -i libsample.cfg -o libsample.py`. Now you can open libsample.py:
+```
+...
+
+class four_bytes(ctypes.Structure):                                                                              
+        pass                                                                                                     
+
+...                                                                                                    
+                                                                                                                 
+four_bytes._fields_ = [                                                                                          
+        ("a", ctypes.c_ushort),                                                                                  
+        ("b", ctypes.c_ushort),                                                                                  
+        ]                                                                                                        
+...
+```
+and sample session may look like this:
+```
+>>> import libsample
+>>> lib = libsample.libsample("libsample/libsample.so")
+>>> param = libsample.four_bytes(2, 7)
+>>> lib.bar(param)
+bar, a: 2, b: 7
+>>> param.a = 10
+>>> lib.bar(param)
+bar, a: 10, b: 7
+```
