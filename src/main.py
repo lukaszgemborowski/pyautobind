@@ -331,6 +331,12 @@ def parse_command_line():
             if "cfg_so_path" in b:
                 cfg_so_path = b["cfg_so_path"]
 
+            if "cfg_output" in b:
+                if outfilename != None:
+                    print("output file name specified in cfg file and command argument. Discarding value from cfg file")
+                else:
+                    outfilename = b["cfg_output"]
+
 def main():
     global outfilename
 
