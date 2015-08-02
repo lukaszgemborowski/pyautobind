@@ -149,7 +149,7 @@ def generate_struct_members(writer, structs):
             if field.type.kind != TypeKind.RECORD and field.type.kind != TypeKind.UNEXPOSED:
                 writer.write("(\"%s\", %s)," % (field.displayname, type_to_ctype(field.type, structs)), 1)
             else:
-                print("WARN: struct member ommited: %s of type: %s" % (field.displayname, field.type.spelling))
+                print("WARN: struct member omited: %s of type: %s, file: %s:%d" % (field.displayname, field.type.spelling, field.location.file, field.location.line))
 
         writer.write("]\n", 1)
 
