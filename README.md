@@ -4,7 +4,7 @@
 pyautobind is simple script for wrapping C-headers and libraries into python code. pyautobind will generate python definitions and ctypes code for your C library automatically. Just provide headers and let the pyautobind do the magic. **The script won't work with C++ libraries**.
 
 ## dependencies
-you need libclang and it's python bindings for this script to work correctly.
+you need libclang and it's python bindings for this script to work correctly. Generated script do not have any dependencies to external libraries, it uses only ctypes from Python.
 
 ## WARNING
 at this moment the script is in very unstable pre-beta stage. It may contain many severe BUGS. Please do not hesitate to report them directly to me or in project issue tracker.
