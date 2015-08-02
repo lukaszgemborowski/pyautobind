@@ -172,8 +172,19 @@ def generate_one_function(writer, function, structs):
 
 
 def generate_functions(writer, functions, structs):
+    # gather names of all header files without extension
+    modules = {}
     for function in functions:
-        generate_one_function(writer, function, structs)
+        module_name = get_module_name_from_element(function)
+
+        if module_name not in modules:
+            modules[module_name] = []
+
+        modules[module_name].append(function)
+
+    for module, function_list in modules.iteritems():
+        for function in function_list:
+            generate_one_function(writer, function, structs)
 
 def generate_module(writer, functions, structs):
     writer.write("class %s:" % cfg_name)
