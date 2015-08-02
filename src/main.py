@@ -44,6 +44,7 @@ class Writer:
 
         self._stream.write("%s\n" % line)
 
+
 def get_type_name(ctype):
     """
     Translate libclang Type into ctypes type (without struct, const prefix)
@@ -70,15 +71,6 @@ def get_type_name(ctype):
 
     return canonical_name 
 
-def get_struct_name_from_decl(struct):
-    assert isinstance(struct, Cursor), "argument should be of type Cursor"
-    assert struct.kind == CursorKind.STRUCT_DECL, "argument sholud be STRUCT_DECL kind"
-
-    if struct.displayname != "":
-        return struct.displayname
-    else:
-        return struct.type.spelling
-
 def get_enum_name_from_decl(enum):
     assert isinstance(enum, Cursor), "argument should be of type Cursor"
     assert enum.kind == CursorKind.ENUM_DECL, "argument should be ENUM_DECL kind"
@@ -88,14 +80,36 @@ def get_enum_name_from_decl(enum):
     else:
         return enum.type.spelling
 
-def print_pointer(basic_type, level):
-    """ 
-    recursively print nested pointers
-    """
-    if level == 0:
-        return basic_type
-    else:
-        return "ctypes.POINTER(%s)" % print_pointer(basic_type, level - 1)
+class CommonDecl(object):
+    def __init__(self, cursor):
+        assert cursor.kind == CursorKind.ENUM_DECL or cursor.kind == CursorKind.STRUCT_DECL or cursor.kind == CursorKind.FUNCTION_DECL, "type not supported"
+        self._cursor = cursor
+
+    def type_name(self):
+        if self._cursor.displayname != "":
+            return self._cursor.displayname
+        else:
+            return self._cursor.type.spelling
+
+    def __hash__(self):
+        return self.type_name().__hash__()
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+class FunctionDecl(CommonDecl):
+    def __init__(self, cursor):
+        super(FunctionDecl, self).__init__(cursor)
+
+class StructureDecl(CommonDecl):
+    def __init__(self, cursor):
+        super(StructureDecl, self).__init__(cursor)
+
+    def get_fields(self):
+        return self._cursor.get_children()
 
 def print_type(basic_type, structs):
     if basic_type.kind == TypeKind.POINTER:
@@ -110,7 +124,7 @@ def print_type(basic_type, structs):
             return "ctypes.%s" % basic_type_map[raw_type]
         else:
             for struct in structs:
-                if raw_type == get_struct_name_from_decl(struct):
+                if raw_type == struct.type_name():
                     return raw_type
 
             # not a raw type and not an struct defined before. What to do?
@@ -118,17 +132,20 @@ def print_type(basic_type, structs):
 
 def generate_struct_declarations(writer, structs):
     for struct in structs:
-        writer.write("class %s(ctypes.Structure):" % get_struct_name_from_decl(struct))
+        writer.write("class %s(ctypes.Structure):" % struct.type_name())
         writer.write("pass\n", 1)
 
 def generate_struct_members(writer, structs):
     for struct in structs:
-        writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
+        writer.write("%s._fields_ = [" % struct.type_name())
 
-        for field in struct.get_children():
-            if field.type.kind != TypeKind.RECORD:
-                writer.write("(\"%s\", %s)," % (field.displayname, print_type(field.type, structs)), 1)
+        for field in struct.get_fields():
+            field_type_name = print_type(field.type, structs) 
+
+            if field_type_name != None and field.type.kind != TypeKind.RECORD:
+                writer.write("(\"%s\", %s)," % (field.displayname, field_type_name), 1)
             else:
+                writer.write("#(\"%s\", %s)," % (field.displayname, field.type.spelling), 1)
                 print("WARN: struct member omited: %s of type: %s, file: %s:%d" % (field.displayname, field.type.spelling, field.location.file, field.location.line))
 
         writer.write("]\n", 1)
@@ -237,7 +254,8 @@ def handle_functions(node, functions):
 def handle_structure(node, structs):
     if node.is_definition():
         # do not include forward declarations in list
-        structs.append(node)
+        #structs.append(node)
+        structs.add(StructureDecl(node))
 
 def handle_enum(node, enums):
     enums.append(node)
@@ -310,17 +328,21 @@ def main():
     global outfilename
 
     types = []
-    structs = []
+    structs = set()
     functions = []
     enums = []
+    translation_units = []
 
     parse_command_line()
 
     index = Index.create();
-    tu = index.parse(cfg_files[0], cfg_includes)
 
-    for node in tu.cursor.get_children():
-        find_definitions(node, types, structs, functions, enums)
+    for i in cfg_files:
+        translation_units.append(index.parse(i, cfg_includes))
+
+    for tu in translation_units:
+        for node in tu.cursor.get_children():
+            find_definitions(node, types, structs, functions, enums)
 
     with Writer(outfilename) as writer:
         generate_header(writer)
