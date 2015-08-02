@@ -159,19 +159,22 @@ def generate_one_function(writer, function, structs):
     if function.type.kind == TypeKind.FUNCTIONPROTO and function.type.is_function_variadic():
         arglist.append("*args")
 
-    writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
+    writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 2)
     restype = print_type(function.result_type, structs)
 
-    writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
+    writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 3)
 
     if restype != "void":
-        writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
-        writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+        writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 3)
+        writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 3)
     else:
-        writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
-
+        writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 3)
 
 def generate_functions(writer, functions, structs):
+    for function in functions:
+        generate_one_function(writer, function, structs)
+
+def generate_module(writer, functions, structs):
     # gather names of all header files without extension
     modules = {}
     for function in functions:
@@ -182,16 +185,21 @@ def generate_functions(writer, functions, structs):
 
         modules[module_name].append(function)
 
-    for module, function_list in modules.iteritems():
-        for function in function_list:
-            generate_one_function(writer, function, structs)
-
-def generate_module(writer, functions, structs):
     writer.write("class %s:" % cfg_name)
     writer.write("def __init__(self, path):", 1)
     writer.write("self._handle = ctypes.CDLL(path)\n", 2)
 
-    generate_functions(writer, functions, structs)
+    for module_name in modules:
+        writer.write("self.%s = %s.%s_h(self._handle)" % (module_name, cfg_name, module_name), 2)
+
+    writer.write("")
+
+    for module_name, function_list in modules.iteritems():
+        writer.write("class %s_h:" % module_name, 1)
+        writer.write("def __init__(self, handle):", 2)
+        writer.write("self._handle = handle\n", 3)
+
+        generate_functions(writer, function_list, structs)
 
 def generate_enums(writer, enums):
     for enum in enums:
