@@ -7,6 +7,7 @@ import os
 cfg_name = None
 cfg_includes = []
 cfg_files = None
+cfg_so_path = None
 
 infile = None
 outfilename = None
@@ -213,8 +214,15 @@ def generate_module(writer, functions, structs):
 
     writer.write("class %s:" % cfg_name)
     writer.write("def __init__(self, path):", 1)
-    writer.write("self._handle = ctypes.CDLL(path)\n", 2)
+    writer.write("self._handle = ctypes.CDLL(path)", 2)
+    writer.write("self.init_submodules()\n", 2)
 
+    if cfg_so_path != None:
+        writer.write("def __init__(self):", 1)
+        writer.write("self._handle = ctypes.CDLL(\"%s\")" % cfg_so_path, 2)
+        writer.write("self.init_submodules()\n", 2)
+
+    writer.write("def init_submodules(self):", 1)
     for module_name in modules:
         writer.write("self.%s = %s.%s_h(self._handle)" % (module_name, cfg_name, module_name), 2)
 
@@ -276,6 +284,7 @@ def parse_command_line():
     global cfg_name
     global cfg_includes
     global cfg_files
+    global cfg_so_path
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ho:i:", ["help", "output=", "input="])
@@ -318,6 +327,9 @@ def parse_command_line():
 
             if "cfg_includes" in b:
                 cfg_includes = b["cfg_includes"]
+
+            if "cfg_so_path" in b:
+                cfg_so_path = b["cfg_so_path"]
 
 def main():
     global outfilename
