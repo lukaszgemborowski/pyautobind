@@ -14,45 +14,45 @@ for now you need to know a little bit about ctypes python library as most of typ
 
 ## example usage
 for this example you can use provided stdio.cfg file. To generate python bindings just run following command, assume that you're in root of git repository:
-`python src/main.py -i stdio.cfg -o stdio.py`
+`python src/main.py -i configs/cstdlib.cfg -o cstdlib.py`
 Please review stdio.cfg before running it, it shall contain path to stdio.h file in your system. If your stdio.h is located somewhere else you need to tune stdio.cfg file. Now the stdio.py file shall be generated. You can enter python shell and test generated (stdio.py) code:
 ```
 $ python
 Python 2.7.9 (default, Apr  2 2015, 15:33:21) 
 [GCC 4.9.2] on linux2
 Type "help", "copyright", "credits" or "license" for more information.
->>> import stdio
->>> lib = stdio.stdio("libc.so.6")
+>>> import cstdlib
+>>> lib = cstdlib.cstdlib("libc.so.6")
 ```
 note that stdio.h is part of GNU C library, so you need to load it before executing anything from it.
 ```
->>> lib.printf("Hello %s\n", "world")
+>>> lib.stdio.printf("Hello %s\n", "world")
 Hello world
 12
 ```
 "Hellow world" is what we want to print on stdio, 12 is return value from printf function, you can of course store it somewhere.
 ```
->>> ret = lib.printf("Hello world\n")
+>>> ret = lib.stdio.printf("Hello world\n")
 Hello world
 >>> ret
 12
 ```
 You can now try to do something more "advanced", eg. file IO:
 ```
->>> fd = lib.fopen("beer.txt", "w")
+>>> fd = lib.stdio.fopen("beer.txt", "w")
 >>> bottles = 99
 >>> while bottles > 0:
-...     ret = lib.fprintf(fd, "%i bottles of beer on the wall, %i bottles of beer.\n", bottles, bottles)
+...     ret = lib.stdio.fprintf(fd, "%i bottles of beer on the wall, %i bottles of beer.\n", bottles, bottles)
 ...     bottles = bottles - 1
 ...     if bottles > 0:
-...             ret = lib.fprintf(fd, "Take one down and pass it around, %i bottles of beer on the wall.\n\n", bottles)
+...             ret = lib.stdio.fprintf(fd, "Take one down and pass it around, %i bottles of beer on the wall.\n\n", bottles)
 ...     else:
-...             ret = lib.fprintf(fd, "Take one down and pass it around, no more bottles of beer on the wall.\n")
+...             ret = lib.stdio.fprintf(fd, "Take one down and pass it around, no more bottles of beer on the wall.\n")
 ...
->>> lib.fclose(fd)
+>>> lib.stdio.fclose(fd)
 0
 ```
-Now you can check contents of beer.txt file. (now I feel that this software should be beerware :)) pyautobind will generate python classes for every C structure found in header files. You can check it out on libsample provided in this repository. It contains several structure definitions: `python src/main.py -i libsample.cfg -o libsample.py`. Now you can open libsample.py:
+Now you can check contents of beer.txt file. (now I feel that this software should be beerware :)) pyautobind will generate python classes for every C structure found in header files. You can check it out on libsample provided in this repository. It contains several structure definitions: `python src/main.py -i configs/libsample.cfg -o libsample.py`. Now you can open libsample.py:
 ```
 ...
 
@@ -72,9 +72,9 @@ and sample session may look like this:
 >>> import libsample
 >>> lib = libsample.libsample("libsample/libsample.so")
 >>> param = libsample.four_bytes(2, 7)
->>> lib.bar(param)
+>>> lib.interface.bar(param)
 bar, a: 2, b: 7
 >>> param.a = 10
->>> lib.bar(param)
+>>> lib.interface.bar(param)
 bar, a: 10, b: 7
 ```
