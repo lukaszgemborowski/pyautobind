@@ -331,6 +331,9 @@ def parse_command_line():
             if "cfg_so_path" in b:
                 cfg_so_path = b["cfg_so_path"]
 
+            if "cfg_output" in b:
+                outfilename = b["cfg_output"]
+
 def main():
     global outfilename
 
