@@ -234,20 +234,6 @@ def generate_header(writer):
     import helpers
     writer.write(helpers.helpers_string)
 
-def debug_print_ast(node, level):
-    next_level = level + 1
-    while level > 0:
-        sys.stdout.write("\t")
-        level = level - 1
-
-    print(node.displayname, node.kind)
-
-    for c in node.get_children():
-        debug_print_ast(c, next_level)
-
-def ctype_to_python(ctypename):
-    return "ctypes." + basic_type_map[ctypename.get_canonical().spelling]
-
 def handle_functions(node, functions):
     functions.append(node)
 
