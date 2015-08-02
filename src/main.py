@@ -136,7 +136,16 @@ def generate_struct_declarations(writer, structs):
         writer.write("pass\n", 1)
 
 def generate_struct_members(writer, structs):
-    for struct in structs:
+    structs_copy = structs.copy()
+
+    while len(structs_copy) > 0:
+        # HACK: we pop() an element here to obtain set elements in-order they are placed.
+        # this will hopefuly allow us to generate definitions in proper order, i.e. structures
+        # using other structures as their members will be generated after their dependencies
+        # !!!this may work by an accident!!!
+        # TODO: this should be implemented by detecting dependencies and generating them first!
+        struct = structs_copy.pop()
+
         writer.write("%s._fields_ = [" % struct.type_name())
 
         for field in struct.get_fields():
