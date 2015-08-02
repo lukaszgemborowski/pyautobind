@@ -125,7 +125,7 @@ def generate_struct_members(writer, structs):
         writer.write("%s._fields_ = [" % get_struct_name_from_decl(struct))
 
         for field in struct.get_children():
-            if field.type.kind != TypeKind.RECORD and field.type.kind != TypeKind.UNEXPOSED:
+            if field.type.kind != TypeKind.RECORD:
                 writer.write("(\"%s\", %s)," % (field.displayname, print_type(field.type, structs)), 1)
             else:
                 print("WARN: struct member omited: %s of type: %s, file: %s:%d" % (field.displayname, field.type.spelling, field.location.file, field.location.line))
