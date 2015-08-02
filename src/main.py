@@ -132,39 +132,43 @@ def generate_struct_members(writer, structs):
 
         writer.write("]\n", 1)
 
+def generate_one_function(writer, function, structs):
+    arglist = ["self"]
+    argtypes = []
+    unnamed_no = 0
+
+    for arg in function.get_arguments():
+        arg_type = print_type(arg.type, structs)
+
+        if arg_type == None:
+            arg_type = "TransparentType"
+
+        argtypes.append(arg_type)
+
+        if arg.spelling == "":
+            arglist.append("unnamed_%d" % unnamed_no)
+            unnamed_no = unnamed_no + 1
+        else:
+            arglist.append(arg.spelling)
+
+    if function.type.kind == TypeKind.FUNCTIONPROTO and function.type.is_function_variadic():
+        arglist.append("*args")
+
+    writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
+    restype = print_type(function.result_type, structs)
+
+    writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
+
+    if restype != "void":
+        writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
+        writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+    else:
+        writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+
+
 def generate_functions(writer, functions, structs):
     for function in functions:
-        arglist = ["self"]
-        argtypes = []
-        unnamed_no = 0
-
-        for arg in function.get_arguments():
-            arg_type = print_type(arg.type, structs)
-
-            if arg_type == None:
-                arg_type = "TransparentType"
-
-            argtypes.append(arg_type)
-
-            if arg.spelling == "":
-                arglist.append("unnamed_%d" % unnamed_no)
-                unnamed_no = unnamed_no + 1
-            else:
-                arglist.append(arg.spelling)
-
-        if function.type.kind == TypeKind.FUNCTIONPROTO and function.type.is_function_variadic():
-            arglist.append("*args")
-
-        writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
-        restype = print_type(function.result_type, structs)
-
-        writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
-
-        if restype != "void":
-            writer.write("self._handle.%s.restype = %s" % (function.spelling, restype), 2)
-            writer.write("return self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
-        else:
-            writer.write("self._handle.%s(%s)\n" % (function.spelling, ', '.join(arglist[1:])), 2)
+        generate_one_function(writer, function, structs)
 
 def generate_module(writer, functions, structs):
     writer.write("class %s:" % cfg_name)
