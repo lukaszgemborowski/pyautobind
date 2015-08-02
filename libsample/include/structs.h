@@ -26,6 +26,7 @@ struct combo
 {
 	int *pointer_to_integer;
 	int integer_array[20];
+        int *array_of_pointers[10];
 };
 
 typedef struct { int a; } unnamed_struct_t;
