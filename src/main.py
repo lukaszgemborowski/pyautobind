@@ -214,8 +214,15 @@ def generate_module(writer, functions, structs):
 
     writer.write("class %s:" % cfg_name)
     writer.write("def __init__(self, path):", 1)
-    writer.write("self._handle = ctypes.CDLL(path)\n", 2)
+    writer.write("self._handle = ctypes.CDLL(path)", 2)
+    writer.write("self.init_submodules()\n", 2)
 
+    if cfg_so_path != None:
+        writer.write("def __init__(self):", 1)
+        writer.write("self._handle = ctypes.CDLL(\"%s\")" % cfg_so_path, 2)
+        writer.write("self.init_submodules()\n", 2)
+
+    writer.write("def init_submodules(self):", 1)
     for module_name in modules:
         writer.write("self.%s = %s.%s_h(self._handle)" % (module_name, cfg_name, module_name), 2)
 
