@@ -111,12 +111,12 @@ class StructureDecl(CommonDecl):
     def get_fields(self):
         return self._cursor.get_children()
 
-def print_type(basic_type, structs):
+def print_ctype(basic_type, structs):
     if basic_type.kind == TypeKind.POINTER:
-        return "ctypes.POINTER(%s)" % print_type(basic_type.get_pointee(), structs)
+        return "ctypes.POINTER(%s)" % print_ctype(basic_type.get_pointee(), structs)
 
     elif basic_type.kind == TypeKind.CONSTANTARRAY:
-        return "%s * %d" % (print_type(basic_type.get_array_element_type(), structs), basic_type.get_array_size())
+        return "%s * %d" % (print_ctype(basic_type.get_array_element_type(), structs), basic_type.get_array_size())
 
     else:
         raw_type = get_type_name(basic_type)
@@ -140,7 +140,7 @@ def generate_struct_members(writer, structs):
         writer.write("%s._fields_ = [" % struct.type_name())
 
         for field in struct.get_fields():
-            field_type_name = print_type(field.type, structs) 
+            field_type_name = print_ctype(field.type, structs) 
 
             if field_type_name != None and field.type.kind != TypeKind.RECORD:
                 writer.write("(\"%s\", %s)," % (field.displayname, field_type_name), 1)
@@ -160,7 +160,7 @@ def generate_one_function(writer, function, structs):
     unnamed_no = 0
 
     for arg in function.get_arguments():
-        arg_type = print_type(arg.type, structs)
+        arg_type = print_ctype(arg.type, structs)
 
         if arg_type == None:
             arg_type = "TransparentType"
@@ -177,7 +177,7 @@ def generate_one_function(writer, function, structs):
         arglist.append("*args")
 
     writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 2)
-    restype = print_type(function.result_type, structs)
+    restype = print_ctype(function.result_type, structs)
 
     writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 3)
 
