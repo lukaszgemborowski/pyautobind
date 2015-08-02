@@ -47,14 +47,14 @@ def get_type_name(ctype):
     """
     Translate libclang Type into ctypes type (without struct, const prefix)
     """
+    if ctype.kind == TypeKind.CONSTANTARRAY:
+        ctype = ctype.get_array_element_type()
+
     if ctype.kind == TypeKind.POINTER:
         if ctype.get_pointee().get_canonical().kind == TypeKind.VOID:
             # special case for void* type
             return "void *"
         ctype = ctype.get_pointee()
-
-    if ctype.kind == TypeKind.CONSTANTARRAY:
-        ctype = ctype.get_array_element_type()
 
     canonical_name = ctype.get_canonical().spelling
 
@@ -96,45 +96,24 @@ def print_pointer(basic_type, level):
     else:
         return "ctypes.POINTER(%s)" % print_pointer(basic_type, level - 1)
 
-def type_to_ctype(typedef, structs):
-    assert isinstance(typedef, Type), "argument should be of type Type"
-    pointer_level = 0
-    is_array = False
-    raw_type = get_type_name(typedef)
-    
-    if typedef.kind == TypeKind.POINTER:
-        # void* is special case, we don't handle it as pointer type
-        if typedef.get_pointee().get_canonical().kind != TypeKind.VOID:
-            next_level = typedef
-            while next_level.kind == TypeKind.POINTER:
-                next_level = next_level.get_pointee()
-                pointer_level = pointer_level + 1
+def print_type(basic_type, structs):
+    if basic_type.kind == TypeKind.POINTER:
+        return "ctypes.POINTER(%s)" % print_type(basic_type.get_pointee(), structs)
 
-            raw_type = get_type_name(next_level)
+    elif basic_type.kind == TypeKind.CONSTANTARRAY:
+        return "%s * %d" % (print_type(basic_type.get_array_element_type(), structs), basic_type.get_array_size())
 
-    elif typedef.kind == TypeKind.CONSTANTARRAY:
-        is_array = True
-
-    if raw_type in basic_type_map:
-        raw_type = "ctypes." + basic_type_map[raw_type]
     else:
-        # type is not a basic type, or someone missed this type in translation dict ;)
-        # try to find it in declared structures list
-        raw_type = None
-
-        for struct in structs:
-            if get_type_name(typedef) == get_struct_name_from_decl(struct):
-                raw_type = get_struct_name_from_decl(struct)
-
-    if raw_type != None:
-        if pointer_level > 0:
-            return print_pointer(raw_type, pointer_level)
-        elif is_array:
-            return "%s * %d" % (raw_type, typedef.get_array_size())
+        raw_type = get_type_name(basic_type)
+        if raw_type in basic_type_map:
+            return "ctypes.%s" % basic_type_map[raw_type]
         else:
-            return raw_type
-    else:
-        return None 
+            for struct in structs:
+                if raw_type == get_struct_name_from_decl(struct):
+                    return raw_type
+
+            # not a raw type and not an struct defined before. What to do?
+            return None
 
 def generate_struct_declarations(writer, structs):
     for struct in structs:
@@ -147,7 +126,7 @@ def generate_struct_members(writer, structs):
 
         for field in struct.get_children():
             if field.type.kind != TypeKind.RECORD and field.type.kind != TypeKind.UNEXPOSED:
-                writer.write("(\"%s\", %s)," % (field.displayname, type_to_ctype(field.type, structs)), 1)
+                writer.write("(\"%s\", %s)," % (field.displayname, print_type(field.type, structs)), 1)
             else:
                 print("WARN: struct member omited: %s of type: %s, file: %s:%d" % (field.displayname, field.type.spelling, field.location.file, field.location.line))
 
@@ -160,7 +139,7 @@ def generate_functions(writer, functions, structs):
         unnamed_no = 0
 
         for arg in function.get_arguments():
-            arg_type = type_to_ctype(arg.type, structs)
+            arg_type = print_type(arg.type, structs)
 
             if arg_type == None:
                 arg_type = "TransparentType"
@@ -177,7 +156,7 @@ def generate_functions(writer, functions, structs):
             arglist.append("*args")
 
         writer.write("def %s(%s):" % (function.spelling, ', '.join(arglist)), 1)
-        restype = type_to_ctype(function.result_type, structs)
+        restype = print_type(function.result_type, structs)
 
         writer.write("self._handle.%s.argtypes = [%s]" % (function.spelling, ', '.join(argtypes)), 2)
 
