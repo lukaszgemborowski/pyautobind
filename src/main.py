@@ -7,6 +7,7 @@ import os
 cfg_name = None
 cfg_includes = []
 cfg_files = None
+cfg_so_path = None
 
 infile = None
 outfilename = None
@@ -276,6 +277,7 @@ def parse_command_line():
     global cfg_name
     global cfg_includes
     global cfg_files
+    global cfg_so_path
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ho:i:", ["help", "output=", "input="])
@@ -318,6 +320,9 @@ def parse_command_line():
 
             if "cfg_includes" in b:
                 cfg_includes = b["cfg_includes"]
+
+            if "cfg_so_path" in b:
+                cfg_so_path = b["cfg_so_path"]
 
 def main():
     global outfilename
