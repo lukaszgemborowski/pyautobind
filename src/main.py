@@ -2,6 +2,7 @@ from clang.cindex import *
 from ctypes import *
 import sys
 import getopt
+import os
 
 cfg_name = None
 cfg_includes = []
@@ -131,6 +132,10 @@ def generate_struct_members(writer, structs):
                 print("WARN: struct member omited: %s of type: %s, file: %s:%d" % (field.displayname, field.type.spelling, field.location.file, field.location.line))
 
         writer.write("]\n", 1)
+
+def get_module_name_from_element(entity):
+    base = os.path.basename(str(entity.location.file))
+    return os.path.splitext(base)[0]
 
 def generate_one_function(writer, function, structs):
     arglist = ["self"]
